@@ -1,13 +1,9 @@
 package com.example.sleepband.viewmodel
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import com.example.sleepband.ble.BleConnectionState
 import com.example.sleepband.ble.BleManager
 import com.example.sleepband.ble.BleScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
@@ -16,20 +12,29 @@ class DeviceViewModel @Inject constructor(
     private val bleManager: BleManager
 ) : ViewModel() {
 
+    /* ============================= */
+    /* State from scanner/manager    */
+    /* ============================= */
+
     val isScanning = bleScanner.isScanning
-    val foundDevices = bleScanner.foundDevices
+    val foundDevices = bleScanner.devices
     val connectionState = bleManager.connectionState
 
+
+    /* ============================= */
+    /* Actions                       */
+    /* ============================= */
+
     fun startScan() {
-        bleScanner.startScanning()
+        bleScanner.start()
     }
 
     fun stopScan() {
-        bleScanner.stopScanning()
+        bleScanner.stop()
     }
 
     fun connectToDevice(address: String) {
-        bleScanner.stopScanning()
+        bleScanner.stop()
         bleManager.connect(address)
     }
 

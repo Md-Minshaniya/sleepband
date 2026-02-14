@@ -1,9 +1,9 @@
 package com.example.sleepband.ble
 
+import android.annotation.SuppressLint
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothManager
-import android.bluetooth.le.ScanCallback
-import android.bluetooth.le.ScanResult
+import android.bluetooth.le.*
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,39 +13,56 @@ import javax.inject.Singleton
 
 @Singleton
 class BleScanner @Inject constructor(
-    @ApplicationContext private val context: Context
+    @ApplicationContext context: Context
 ) {
-    private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-    private val bluetoothAdapter: BluetoothAdapter? = bluetoothManager.adapter
-    private val scanner = bluetoothAdapter?.bluetoothLeScanner
+
+    private val manager =
+        context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+
+    private val adapter: BluetoothAdapter? = manager.adapter
+    private val scanner: BluetoothLeScanner? = adapter?.bluetoothLeScanner
+
+    private val _devices = MutableStateFlow<List<ScanResult>>(emptyList())
+    val devices = _devices.asStateFlow()
 
     private val _isScanning = MutableStateFlow(false)
     val isScanning = _isScanning.asStateFlow()
 
-    private val _foundDevices = MutableStateFlow<List<ScanResult>>(emptyList())
-    val foundDevices = _foundDevices.asStateFlow()
+    private val callback = object : ScanCallback() {
 
-    private val scanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
-            val currentList = _foundDevices.value.toMutableList()
+            val currentList = _devices.value.toMutableList()
+
             if (currentList.none { it.device.address == result.device.address }) {
                 currentList.add(result)
-                _foundDevices.value = currentList
+                _devices.value = currentList
             }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            _isScanning.value = false
         }
     }
 
-    fun startScanning() {
+    @SuppressLint("MissingPermission")
+    fun start() {
         if (_isScanning.value) return
-        _foundDevices.value = emptyList()
+        if (scanner == null) return
+
+        _devices.value = emptyList()
         _isScanning.value = true
-        // TODO: Add permission checks
-        scanner?.startScan(scanCallback)
+
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build()
+
+        scanner.startScan(null, settings, callback)
     }
 
-    fun stopScanning() {
+    @SuppressLint("MissingPermission")
+    fun stop() {
         if (!_isScanning.value) return
+        scanner?.stopScan(callback)
         _isScanning.value = false
-        scanner?.stopScan(scanCallback)
     }
 }
